@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Student Group Manager — Admin Unlock</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f1f6fb;--card:#fff;--accent:#2563eb;--muted:#6b7280;--danger:#dc2626;--success:#16a34a;
+  }
+  *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif}
+  body{margin:0;background:linear-gradient(180deg,#eef7ff 0%,var(--bg) 100%);min-height:100vh;color:#0f172a}
+  header{
+    background:linear-gradient(90deg,#06b6d4 0%, #2563eb 60%); color:white; padding:22px;
+    border-bottom-left-radius:18px;border-bottom-right-radius:18px; display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  }
+  .logo{width:56px;height:56px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.14);font-weight:800;font-size:20px}
+  header h1{margin:0;font-size:20px}
+  header p{margin:0;font-size:13px;opacity:0.95}
+  .controls{display:flex;gap:10px;align-items:center}
+  .btn{background:var(--card);border:none;padding:10px 14px;border-radius:10px;cursor:pointer;font-weight:600;box-shadow:0 4px 14px rgba(2,6,23,0.06)}
+  .btn.primary{background:linear-gradient(90deg,#06b6d4,#2563eb);color:white}
+  main{max-width:1200px;margin:20px auto;padding:18px;display:grid;grid-template-columns:380px 1fr;gap:20px}
+  .panel{background:var(--card);border-radius:12px;padding:16px;box-shadow:0 6px 22px rgba(13,27,44,0.04)}
+  label{display:block;margin-top:10px;font-size:13px;color:#0f172a;margin-bottom:6px}
+  input[type="text"], input[type="email"], input[type="password"], select, textarea, input[type="number"] {
+    width:100%;padding:10px;border-radius:8px;border:1px solid #e6edf6;background:#fbfdff;
+  }
+  .field-row{display:flex;gap:8px}
+  .field-row input{flex:1}
+  .classes-stack{display:flex;flex-direction:column;gap:18px}
+  .class-card{border-radius:12px;padding:14px;background:linear-gradient(180deg,#fff,#fbfdff);border:1px solid #eef4ff}
+  .class-header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .muted{color:var(--muted);font-size:13px}
+  .groups-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-top:12px}
+  .group-card{background:linear-gradient(180deg,#fff,#fbfdff);border-radius:12px;padding:12px;border:1px solid #eef4ff}
+  .chip{font-size:12px;padding:6px 10px;border-radius:999px;background:rgba(37,99,235,0.08);color:var(--accent);font-weight:600}
+  .leader{background:linear-gradient(90deg,#fde68a,#f59e0b);padding:6px 8px;border-radius:8px;color:#1f2937;font-weight:700}
+  .member{padding:8px 6px;border-radius:8px;border-bottom:1px dashed #f1f5f9;display:flex;justify-content:space-between;align-items:center}
+  .member:last-child{border-bottom:none}
+  .note{background:#f8fafc;border-radius:8px;padding:8px;margin-top:8px;border-left:4px solid #c7f9e2}
+  .small{font-size:12px;color:var(--muted)}
+  .about-modal, .notes-modal, .delegate-modal{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;z-index:200}
+  .modal-card{width:min(840px,95%);background:var(--card);padding:18px;border-radius:12px;box-shadow:0 20px 60px rgba(2,6,23,0.2)}
+  .disabledOverlay{opacity:0.45;pointer-events:none}
+  @media (max-width:980px){ main{grid-template-columns:1fr; padding:12px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;gap:12px;align-items:center">
+    <div class="logo">SG</div>
+    <div>
+      <h1>Student Group Manager</h1>
+      <p class="small">Multiple classes, per-group leaders, and per-group notes — all stored locally.</p>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" id="btnAbout">About</button>
+    <!-- Reset button will be disabled until admin unlocks; still visible -->
+    <button class="btn primary" id="btnReset" disabled>Reset System</button>
+  </div>
+</header>
+
+<main>
+  <!-- Left: Admin unlock + Create class & student join -->
+  <section class="panel" id="leftPanel">
+    <!-- Admin Unlock -->
+    <div id="adminUnlockArea">
+      <h3 style="margin:0">Admin Login</h3>
+      <p class="small">Enter admin password to unlock admin controls.</p>
+      <label>Admin Password</label>
+      <input id="adminMasterPass" type="password" placeholder="Enter admin password to unlock admin controls…">
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn primary" id="btnAdminEnter">Enter</button>
+        <button class="btn" id="btnAdminCancel" style="display:none">Cancel</button>
+      </div>
+      <p class="small" id="adminUnlockMsg" style="color:var(--danger);margin-top:8px"></p>
+      <hr style="margin:14px 0">
+    </div>
+
+    <!-- Create class area (disabled until admin unlocks) -->
+    <div id="createArea" class="disabledOverlay">
+      <h2 style="margin:0">Create New Main Group (Admin)</h2>
+      <p class="small">Create a class for a course. Old classes remain below.</p>
+
+      <label>Class / Main Group Name</label>
+      <input id="mainName" type="text" placeholder="e.g., ICT 2025">
+
+      <label>Admin Name</label>
+      <input id="adminName" type="text" placeholder="Admin full name">
+
+      <div class="field-row">
+        <div style="flex:1">
+          <label>Admin Email</label>
+          <input id="adminEmail" type="email" placeholder="admin@example.com">
+        </div>
+        <div style="width:140px">
+          <label>Admin Phone (unique)</label>
+          <input id="adminPhone" type="text" placeholder="+2547...">
+        </div>
+      </div>
+
+      <label>Join Password (students use this)</label>
+      <input id="joinPass" type="password" placeholder="set a join password">
+
+      <label>Notes Password (for posting) </label>
+      <input id="notesPass" type="password" placeholder="set notes password">
+
+      <div class="field-row">
+        <div style="flex:1">
+          <label>Subgroup names (comma-separated)</label>
+          <input id="subgroupsInput" type="text" placeholder="Group A, Group B, Group C">
+        </div>
+        <div style="width:120px">
+          <label>Max members</label>
+          <input id="maxMembers" type="number" min="2" max="100" value="10">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn primary" id="btnCreateClass" disabled>Create Class</button>
+        <button class="btn" id="btnLoad">Load Saved</button>
+      </div>
+    </div>
+
+    <hr style="margin:14px 0">
+
+    <h3 style="margin:0">Student — Join a Class</h3>
+    <p class="small">Pick a class, enter its join password to register.</p>
+
+    <label>Select Class</label>
+    <select id="classSelect"></select>
+
+    <label>Join Password</label>
+    <input id="studentJoinPass" type="password" placeholder="Enter join password">
+
+    <div style="margin-top:8px">
+      <button class="btn primary" id="btnUnlock">Unlock Registration</button>
+    </div>
+
+    <div id="studentFormArea" style="margin-top:12px;display:none">
+      <label>Pick Subgroup</label>
+      <select id="studentGroupSelect"></select>
+
+      <label>Name 1 (required)</label>
+      <input id="s_name1" type="text">
+
+      <label>Name 2 (required)</label>
+      <input id="s_name2" type="text">
+
+      <label>Name 3 (optional)</label>
+      <input id="s_name3" type="text">
+
+      <label>Email</label>
+      <input id="s_email" type="email">
+
+      <label>Phone (unique)</label>
+      <input id="s_phone" type="text">
+
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn primary" id="btnRegister">Submit Registration</button>
+        <button class="btn" id="btnCancelReg">Cancel</button>
+      </div>
+      <p class="small" id="regMsg" style="margin-top:8px"></p>
+    </div>
+  </section>
+
+  <!-- Right: list of classes -->
+  <section>
+    <div class="classes-stack" id="classesStack">
+      <!-- classes rendered here -->
+    </div>
+  </section>
+</main>
+
+<!-- About Modal -->
+<div id="aboutModal" class="about-modal" style="display:none">
+  <div class="modal-card">
+    <h2>About This System</h2>
+    <p class="small">Features:</p>
+    <ul class="small">
+      <li>Multiple classes (main groups) stored in your browser.</li>
+      <li>Admin defines subgroup names and maximum members per subgroup.</li>
+      <li>Students join a specific class using the class join password. Phone numbers are unique across the whole system.</li>
+      <li>Groups show numbered members (1,2,3…). When a group becomes full, an admin or a temporarily delegated student can click "Select Leader" under that group to pick a random leader.</li>
+      <li>Admin can post notes/assignments per group (protected by notes password). Admin can also delegate authority temporarily to a student for that class.</li>
+      <li>Create another class any time — previous classes remain visible. Admin controls are unlocked with the master admin password.</li>
+    </ul>
+    <div style="text-align:right;margin-top:12px"><button class="btn" id="closeAbout">Close</button></div>
+  </div>
+</div>
+
+<!-- Notes Modal (used for posting notes to a specific class/group) -->
+<div id="notesModal" class="notes-modal" style="display:none">
+  <div class="modal-card">
+    <h2>Post Note / Assignment</h2>
+    <p class="small" id="notesAuthHint">Authenticate as admin (notes password) or as delegated student (their phone)</p>
+
+    <label>Authenticate (notes password OR delegate phone)</label>
+    <input id="notesAuthInput" type="text" placeholder="Enter notes password or delegate phone">
+
+    <label>Choose Class</label>
+    <select id="notesClassSelect"></select>
+
+    <label>Choose Group</label>
+    <select id="notesGroupSelect"></select>
+
+    <label>Title</label>
+    <input id="noteTitle" type="text">
+
+    <label>Content</label>
+    <textarea id="noteContent" rows="5"></textarea>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn primary" id="btnPostNote">Post Note</button>
+      <button class="btn" id="btnCancelNote">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delegate Modal (admin sets delegate for a class) -->
+<div id="delegateModal" class="delegate-modal" style="display:none">
+  <div class="modal-card">
+    <h2>Set / Clear Delegate (temporary, per class)</h2>
+    <p class="small">Only admin (master password + notes password) can assign a delegate. Delegate can then act for that class without the notes password by proving their phone number.</p>
+
+    <label>Admin Master Password</label>
+    <input id="delegateAuth" type="password" placeholder="Enter master admin password">
+
+    <label>Choose Class</label>
+    <select id="delegateClassSelect"></select>
+
+    <label>Choose Member to Delegate (or leave blank to clear)</label>
+    <select id="delegateMemberSelect"></select>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn primary" id="btnSetDelegate">Set Delegate</button>
+      <button class="btn" id="btnClearDelegate">Clear Delegate</button>
+      <button class="btn" id="btnCloseDelegate">Close</button>
+    </div>
+    <p class="small" id="delegateMsg"></p>
+  </div>
+</div>
+
+<script>
+/* ========== Configuration ========== */
+const MASTER_ADMIN_PASSWORD = 'prestigious'; // admin master password (case-sensitive)
+let isAdminUnlocked = false; // runtime only, not persisted
+
+/* ========== State & persistence ========== */
+const STORAGE_KEY = 'sgm_multi_v1';
+let state = { classes: [] };
+
+function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+function loadState(){ const raw = localStorage.getItem(STORAGE_KEY); if(!raw) return false; try{ state = JSON.parse(raw); return true; }catch(e){ console.error(e); return false; } }
+function resetState(){ localStorage.removeItem(STORAGE_KEY); state = { classes: [] }; renderAll(); alert('System reset.'); }
+
+/* ========== Helpers ========== */
+function qs(id){ return document.getElementById(id) }
+function uid(){ return 'c_' + Math.random().toString(36).slice(2,9); }
+function phoneExistsGlobally(phone){
+  if(!phone) return false;
+  for(const cls of state.classes){
+    if(cls.admin && cls.admin.phone === phone) return true;
+    for(const g of cls.subgroups){
+      for(const m of g.members){
+        if(m.phone === phone) return true;
+      }
+    }
+  }
+  return false;
+}
+function countTotalMembersInClass(cls){ let c=0; for(const g of cls.subgroups) c+=g.members.length; return c; }
+
+/* ========== Admin Unlock UI ========== */
+qs('btnAdminEnter').addEventListener('click', ()=> {
+  const val = qs('adminMasterPass').value || '';
+  if(val === MASTER_ADMIN_PASSWORD){
+    isAdminUnlocked = true;
+    // hide unlock area
+    document.getElementById('adminUnlockArea').style.display = 'none';
+    // enable admin controls
+    qs('btnCreateClass').disabled = false;
+    qs('btnReset').disabled = false;
+    document.getElementById('createArea').classList.remove('disabledOverlay');
+    renderAll();
+    alert('Admin unlocked. You can now use admin controls.');
+  } else {
+    qs('adminUnlockMsg').textContent = 'Incorrect password. Try again.';
+  }
+});
+
+/* ========== Create Class ========== */
+qs('btnCreateClass').addEventListener('click', ()=> {
+  if(!isAdminUnlocked){ alert('Admin access required. Enter admin password to unlock.'); return; }
+
+  const mainName = qs('mainName').value.trim();
+  const adminName = qs('adminName').value.trim();
+  const adminEmail = qs('adminEmail').value.trim();
+  const adminPhone = qs('adminPhone').value.trim();
+  const joinPass = qs('joinPass').value;
+  const notesPass = qs('notesPass').value;
+  const subgroupsInput = qs('subgroupsInput').value.trim();
+  const maxMembers = parseInt(qs('maxMembers').value,10) || 10;
+
+  if(!mainName || !adminName || !adminEmail || !adminPhone || !joinPass || !notesPass || !subgroupsInput){
+    alert('Please fill all fields (including subgroup names).');
+    return;
+  }
+  if(phoneExistsGlobally(adminPhone)){
+    alert('Admin phone already exists in the system. Use a unique phone.');
+    return;
+  }
+
+  const subgroupNames = subgroupsInput.split(',').map(s=>s.trim()).filter(Boolean);
+  if(subgroupNames.length === 0){ alert('Enter at least one subgroup name.'); return; }
+
+  const cls = {
+    id: uid(),
+    mainName,
+    admin: { name: adminName, email: adminEmail, phone: adminPhone },
+    joinPassword: joinPass,
+    notesPassword: notesPass,
+    maxMembers: maxMembers,
+    subgroups: subgroupNames.map(n => ({ name: n, members: [], leaderIndex: null, notes: [] })),
+    delegatePhone: null,
+    createdAt: new Date().toISOString()
+  };
+
+  // add admin to first subgroup automatically
+  cls.subgroups[0].members.push({
+    name1: adminName,
+    name2: '(Admin)',
+    name3: '',
+    email: adminEmail,
+    phone: adminPhone,
+    timestamp: new Date().toISOString()
+  });
+
+  state.classes.unshift(cls); // newest first
+  saveState();
+  renderAll();
+  alert('Class created and admin added to first subgroup.');
+  // clear create inputs
+  qs('mainName').value = qs('adminName').value = qs('adminEmail').value = qs('adminPhone').value = qs('joinPass').value = qs('notesPass').value = qs('subgroupsInput').value = '';
+  qs('maxMembers').value = 10;
+});
+
+/* ========== Load / Reset ========= */
+qs('btnLoad').addEventListener('click', ()=> {
+  if(loadState()){ renderAll(); alert('Saved data loaded.'); } else { alert('No saved data found.'); }
+});
+qs('btnReset').addEventListener('click', ()=> {
+  // require master password even if unlocked
+  const pass = prompt('Enter admin master password to reset system:');
+  if(pass === MASTER_ADMIN_PASSWORD){
+    if(confirm('Reset will clear ALL saved data in this browser. Continue?')) resetState();
+  } else {
+    alert('Incorrect admin password. Reset cancelled.');
+  }
+});
+
+/* ========== Student Registration Flow ========= */
+function populateClassSelect(){
+  const sel = qs('classSelect');
+  sel.innerHTML = '';
+  state.classes.forEach((c, idx) => {
+    const opt = document.createElement('option');
+    opt.value = idx;
+    opt.textContent = `${c.mainName} — ${c.subgroups.length} groups — ${countTotalMembersInClass(c)} members`;
+    sel.appendChild(opt);
+  });
+}
+
+qs('btnUnlock').addEventListener('click', ()=> {
+  const selIdx = qs('classSelect').value;
+  if(selIdx === '' || state.classes.length === 0){ alert('No class selected.'); return; }
+  const cls = state.classes[selIdx];
+  const pass = qs('studentJoinPass').value;
+  if(pass === cls.joinPassword){
+    qs('studentFormArea').style.display = 'block';
+    populateStudentGroupSelect(selIdx);
+    qs('studentJoinPass').disabled = true;
+    qs('btnUnlock').disabled = true;
+    qs('regMsg').textContent = 'Registration unlocked for this class.';
+  } else {
+    qs('regMsg').textContent = 'Incorrect join password for selected class.';
+  }
+});
+
+function populateStudentGroupSelect(classIndex){
+  const sel = qs('studentGroupSelect');
+  sel.innerHTML = '';
+  const cls = state.classes[classIndex];
+  cls.subgroups.forEach((g, idx) => {
+    const opt = document.createElement('option');
+    opt.value = idx;
+    opt.textContent = `${g.name} (${g.members.length}/${cls.maxMembers})${g.members.length>=cls.maxMembers ? ' — Full' : ''}`;
+    opt.disabled = g.members.length >= cls.maxMembers;
+    sel.appendChild(opt);
+  });
+}
+
+qs('btnCancelReg').addEventListener('click', ()=> {
+  qs('studentFormArea').style.display='none';
+  qs('studentJoinPass').disabled = false;
+  qs('btnUnlock').disabled = false;
+  qs('regMsg').textContent = '';
+  qs('studentJoinPass').value = '';
+});
+
+qs('btnRegister').addEventListener('click', ()=> {
+  const classIndex = parseInt(qs('classSelect').value,10);
+  if(isNaN(classIndex)){ qs('regMsg').textContent='Select a class.'; return; }
+  const cls = state.classes[classIndex];
+  const gIndex = parseInt(qs('studentGroupSelect').value,10);
+  const name1 = qs('s_name1').value.trim();
+  const name2 = qs('s_name2').value.trim();
+  const name3 = qs('s_name3').value.trim();
+  const email = qs('s_email').value.trim();
+  const phone = qs('s_phone').value.trim();
+
+  if(!name1 || !name2 || !email || !phone){ qs('regMsg').textContent='Please fill Name1, Name2, Email, Phone.'; return; }
+  if(phoneExistsGlobally(phone)){ qs('regMsg').textContent='Phone already used in the system. Use unique phone.'; return; }
+  if(!cls.subgroups[gIndex]){ qs('regMsg').textContent='Invalid subgroup.'; return; }
+  if(cls.subgroups[gIndex].members.length >= cls.maxMembers){ qs('regMsg').textContent='Selected group is full. Choose another.'; populateStudentGroupSelect(classIndex); return; }
+
+  // add member
+  cls.subgroups[gIndex].members.push({ name1, name2, name3, email, phone, timestamp: new Date().toISOString() });
+
+  saveState();
+  renderAll();
+
+  // clear and message
+  qs('s_name1').value = qs('s_name2').value = qs('s_name3').value = qs('s_email').value = qs('s_phone').value = '';
+  qs('regMsg').textContent = 'Registration successful!';
+});
+
+/* ========== Render Everything ========== */
+function renderAll(){
+  populateClassSelect();
+
+  const stack = qs('classesStack');
+  stack.innerHTML = '';
+  if(state.classes.length === 0){
+    const empty = document.createElement('div'); empty.className='panel'; empty.textContent = 'No classes yet. Create one from the left panel (admin only).'; stack.appendChild(empty); return;
+  }
+
+  state.classes.forEach((cls, classIdx) => {
+    const classCard = document.createElement('div'); classCard.className='class-card';
+
+    // header
+    const header = document.createElement('div'); header.className='class-header';
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${cls.mainName}</strong><div class="small">Created: ${new Date(cls.createdAt).toLocaleString()}</div><div class="small">Admin: ${cls.admin.name} • ${cls.admin.phone}</div>`;
+    header.appendChild(left);
+
+    const right = document.createElement('div'); right.style.display='flex'; right.style.gap='8px'; right.style.alignItems='center';
+
+    const info = document.createElement('div'); info.className='small';
+    info.textContent = `${cls.subgroups.length} subgroups — max ${cls.maxMembers}/group — ${countTotalMembersInClass(cls)} members`;
+    right.appendChild(info);
+
+    const delegateInfo = document.createElement('div'); delegateInfo.className='small';
+    delegateInfo.textContent = cls.delegatePhone ? `Delegate: ${cls.delegatePhone}` : 'No delegate';
+    right.appendChild(delegateInfo);
+
+    // Post Note & Delegate buttons - enabled only if admin unlocked
+    const btnPostNote = document.createElement('button'); btnPostNote.className='btn'; btnPostNote.textContent='Post Note';
+    btnPostNote.disabled = !isAdminUnlocked;
+    btnPostNote.addEventListener('click', ()=> openNotesModal(classIdx));
+    right.appendChild(btnPostNote);
+
+    const btnDelegate = document.createElement('button'); btnDelegate.className='btn'; btnDelegate.textContent='Delegate';
+    btnDelegate.disabled = !isAdminUnlocked;
+    btnDelegate.addEventListener('click', ()=> openDelegateModal(classIdx));
+    right.appendChild(btnDelegate);
+
+    header.appendChild(right);
+    classCard.appendChild(header);
+
+    // groups grid
+    const grid = document.createElement('div'); grid.className='groups-grid';
+    cls.subgroups.forEach((g, gIdx) => {
+      const gc = document.createElement('div'); gc.className='group-card';
+
+      // header with group name + count
+      const gh = document.createElement('div'); gh.style.display='flex'; gh.style.justifyContent='space-between'; gh.style.alignItems='center';
+      const title = document.createElement('div'); title.innerHTML = `<strong>${g.name}</strong> <span class="chip">${g.members.length}/${cls.maxMembers}</span>`;
+      gh.appendChild(title);
+
+      const rightHeader = document.createElement('div');
+      // leader display
+      if(g.leaderIndex !== null && g.members[g.leaderIndex]){
+        const leaderEl = document.createElement('div'); leaderEl.className='leader'; leaderEl.textContent = `Leader: ${g.members[g.leaderIndex].name1} ${g.members[g.leaderIndex].name2}`;
+        rightHeader.appendChild(leaderEl);
+      } else if(g.members.length >= cls.maxMembers){
+        const fullEl = document.createElement('div'); fullEl.className='small'; fullEl.textContent='Full — leader not chosen';
+        rightHeader.appendChild(fullEl);
+      }
+      gh.appendChild(rightHeader);
+      gc.appendChild(gh);
+
+      // members numbered
+      const ml = document.createElement('div'); ml.style.marginTop='8px';
+      g.members.forEach((m, mi) => {
+        const mDiv = document.createElement('div'); mDiv.className='member';
+        mDiv.innerHTML = `<div><strong>${mi+1}. ${m.name1} ${m.name2}${m.name3 ? ' ' + m.name3 : ''}</strong><small>${m.email} • ${m.phone}</small></div>`;
+        if(g.leaderIndex === mi){
+          const star = document.createElement('div'); star.innerHTML='&#9733;'; star.style.color='#f59e0b'; star.title='Group Leader';
+          mDiv.appendChild(star);
+        }
+        ml.appendChild(mDiv);
+      });
+      gc.appendChild(ml);
+
+      // notes under group
+      if(g.notes && g.notes.length){
+        const nt = document.createElement('div'); nt.style.marginTop='8px';
+        nt.innerHTML = `<div class="small" style="font-weight:700;margin-bottom:6px">Notes</div>`;
+        g.notes.forEach(n => {
+          const nd = document.createElement('div'); nd.className='note';
+          nd.innerHTML = `<strong>${n.title}</strong><div class="small">${n.content}</div><div class="small" style="margin-top:6px;color:var(--muted)">Posted: ${new Date(n.timestamp).toLocaleString()}</div>`;
+          nt.appendChild(nd);
+        });
+        gc.appendChild(nt);
+      }
+
+      // Select Leader button (enabled only if group full and no leader selected and admin unlocked or delegate)
+      const selectLeaderBtn = document.createElement('button');
+      selectLeaderBtn.className = 'btn';
+      selectLeaderBtn.textContent = 'Select Leader';
+      if(g.members.length >= cls.maxMembers && g.leaderIndex === null){
+        selectLeaderBtn.disabled = false;
+        selectLeaderBtn.classList.add('primary');
+      } else {
+        selectLeaderBtn.disabled = true;
+      }
+      // However only allow immediate admin route if admin unlocked; otherwise attemptSelectLeader will prompt
+      selectLeaderBtn.addEventListener('click', ()=> attemptSelectLeader(classIdx, gIdx));
+      gc.appendChild(selectLeaderBtn);
+
+      grid.appendChild(gc);
+    });
+
+    classCard.appendChild(grid);
+    stack.appendChild(classCard);
+  });
+
+  // update selects in forms (notes, delegate)
+  populateClassSelect();
+  populateNotesModalSelects();
+  populateDelegateSelects();
+
+  // enable/disable create button & reset (in case admin unlocked state changed)
+  qs('btnCreateClass').disabled = !isAdminUnlocked;
+  qs('btnReset').disabled = !isAdminUnlocked;
+  if(isAdminUnlocked) document.getElementById('createArea').classList.remove('disabledOverlay'); else document.getElementById('createArea').classList.add('disabledOverlay');
+}
+
+/* ========== Select Leader (admin or delegated student) ========== */
+function attemptSelectLeader(classIndex, groupIndex){
+  const cls = state.classes[classIndex];
+  const g = cls.subgroups[groupIndex];
+  if(g.members.length < cls.maxMembers){ alert('Group is not yet full.'); return; }
+  if(g.leaderIndex !== null){ alert('Leader already selected.'); return; }
+
+  // If admin is unlocked, allow admin to pick immediately without re-prompt
+  if(isAdminUnlocked){
+    if(confirm('Select a random leader now for this group?')){
+      selectRandomLeader(cls, groupIndex);
+    }
+    return;
+  }
+
+  // else ask who is performing this action:
+  const choice = confirm('Are you the admin of this class? (OK = Admin, Cancel = Delegate)');
+  if(choice){
+    // admin path -> ask for master password
+    const pass = prompt('Enter master admin password:');
+    if(pass === MASTER_ADMIN_PASSWORD){
+      selectRandomLeader(cls, groupIndex);
+    } else { alert('Incorrect master admin password.'); }
+  } else {
+    // delegate path -> ask for delegate phone (must match class.delegatePhone)
+    if(!cls.delegatePhone){ alert('No delegate assigned for this class. Admin must either perform this action or assign a delegate first.'); return; }
+    const phone = prompt('Enter your phone number to prove you are the delegate:');
+    if(phone && phone === cls.delegatePhone){
+      selectRandomLeader(cls, groupIndex);
+    } else { alert('Phone does not match the assigned delegate phone.'); }
+  }
+}
+
+function selectRandomLeader(cls, groupIndex){
+  const g = cls.subgroups[groupIndex];
+  if(g.members.length === 0) { alert('No members to select from'); return; }
+  const rnd = Math.floor(Math.random() * g.members.length);
+  g.leaderIndex = rnd;
+  saveState();
+  renderAll();
+  alert(`Leader selected: ${g.members[rnd].name1} ${g.members[rnd].name2}`);
+}
+
+/* ========== Notes Modal & Posting (per group) ========== */
+function openNotesModal(classIndex){
+  if(!isAdminUnlocked){ alert('Admin access required to post notes. Enter admin password to unlock.'); return; }
+  qs('notesAuthInput').value = '';
+  qs('noteTitle').value = qs('noteContent').value = '';
+  populateNotesModalSelects();
+  if(typeof classIndex === 'number') qs('notesClassSelect').value = classIndex;
+  const evt = new Event('notesClassChange'); qs('notesClassSelect').dispatchEvent(evt);
+  qs('notesModal').style.display = 'flex';
+}
+function populateNotesModalSelects(){
+  const clsSel = qs('notesClassSelect');
+  clsSel.innerHTML = '';
+  state.classes.forEach((c, idx) => { const opt=document.createElement('option'); opt.value=idx; opt.textContent=c.mainName; clsSel.appendChild(opt); });
+  qs('notesClassSelect').addEventListener('change', ()=> {
+    const idx = parseInt(qs('notesClassSelect').value,10);
+    const gSel = qs('notesGroupSelect'); gSel.innerHTML='';
+    if(isNaN(idx)) return;
+    const c = state.classes[idx];
+    c.subgroups.forEach((g,gi) => { const o=document.createElement('option'); o.value=gi; o.textContent = `${g.name} (${g.members.length}/${c.maxMembers})`; gSel.appendChild(o); });
+  });
+}
+qs('btnPostNote').addEventListener('click', ()=> {
+  const auth = qs('notesAuthInput').value.trim();
+  const clsIdx = parseInt(qs('notesClassSelect').value,10);
+  const gIdx = parseInt(qs('notesGroupSelect').value,10);
+  if(isNaN(clsIdx) || isNaN(gIdx)){ alert('Choose class and group'); return; }
+  const cls = state.classes[clsIdx];
+  const title = qs('noteTitle').value.trim();
+  const content = qs('noteContent').value.trim();
+  if(!title || !content){ alert('Provide title and content'); return; }
+
+  // auth: either notesPassword (admin) OR delegate phone matching assigned delegatePhone
+  if(auth === cls.notesPassword || (cls.delegatePhone && auth === cls.delegatePhone)){
+    cls.subgroups[gIdx].notes.push({ title, content, timestamp: new Date().toISOString() });
+    saveState();
+    renderAll();
+    qs('notesModal').style.display = 'none';
+    alert('Note posted.');
+    return;
+  } else {
+    alert('Authentication failed. Enter admin notes password or delegate phone.');
+    return;
+  }
+});
+qs('btnCancelNote').addEventListener('click', ()=> qs('notesModal').style.display='none');
+
+/* ========== Delegate Modal ========== */
+function openDelegateModal(classIndex){
+  if(!isAdminUnlocked){ alert('Admin access required to set a delegate. Enter admin password to unlock.'); return; }
+  populateDelegateSelects();
+  if(typeof classIndex === 'number') qs('delegateClassSelect').value = classIndex;
+  const evt = new Event('delegateClassChange'); qs('delegateClassSelect').dispatchEvent(evt);
+  qs('delegateAuth').value = '';
+  qs('delegateMsg').textContent = '';
+  qs('delegateModal').style.display = 'flex';
+}
+function populateDelegateSelects(){
+  const clsSel = qs('delegateClassSelect');
+  clsSel.innerHTML = '';
+  state.classes.forEach((c, idx) => { const opt=document.createElement('option'); opt.value=idx; opt.textContent=c.mainName; clsSel.appendChild(opt); });
+  qs('delegateClassSelect').addEventListener('change', ()=> {
+    const idx = parseInt(qs('delegateClassSelect').value,10);
+    const memberSel = qs('delegateMemberSelect'); memberSel.innerHTML = '';
+    if(isNaN(idx)) return;
+    const c = state.classes[idx];
+    const addOpt = (label, phone) => { const o=document.createElement('option'); o.value=phone; o.textContent=label + (phone ? ' • ' + phone : ''); memberSel.appendChild(o); };
+    addOpt('(Clear delegate)', '');
+    addOpt(`Admin: ${c.admin.name}`, c.admin.phone);
+    c.subgroups.forEach(g => g.members.forEach(m => { addOpt(`${m.name1} ${m.name2} (${g.name})`, m.phone); }));
+  });
+}
+qs('btnSetDelegate').addEventListener('click', ()=> {
+  const auth = qs('delegateAuth').value;
+  const clsIdx = parseInt(qs('delegateClassSelect').value,10);
+  const memberPhone = qs('delegateMemberSelect').value;
+  if(isNaN(clsIdx)){ qs('delegateMsg').textContent='Choose a class'; return; }
+  const cls = state.classes[clsIdx];
+  if(auth !== cls.notesPassword && auth !== MASTER_ADMIN_PASSWORD){ qs('delegateMsg').textContent='Incorrect admin or notes password (required)'; return; }
+  if(!memberPhone){ qs('delegateMsg').textContent='No member chosen. Use Clear to remove delegate.'; return; }
+  cls.delegatePhone = memberPhone;
+  saveState();
+  renderAll();
+  qs('delegateMsg').textContent = 'Delegate set.';
+});
+qs('btnClearDelegate').addEventListener('click', ()=> {
+  const auth = qs('delegateAuth').value;
+  const clsIdx = parseInt(qs('delegateClassSelect').value,10);
+  if(isNaN(clsIdx)){ qs('delegateMsg').textContent='Choose a class'; return; }
+  const cls = state.classes[clsIdx];
+  if(auth !== cls.notesPassword && auth !== MASTER_ADMIN_PASSWORD){ qs('delegateMsg').textContent='Incorrect admin or notes password (required)'; return; }
+  cls.delegatePhone = null;
+  saveState();
+  renderAll();
+  qs('delegateMsg').textContent = 'Delegate cleared.';
+});
+qs('btnCloseDelegate').addEventListener('click', ()=> qs('delegateModal').style.display='none');
+
+/* ========== Utility: populate notes & delegate selects initially ========== */
+function populateNotesModalSelects(){
+  const clsSel = qs('notesClassSelect'); clsSel.innerHTML = '';
+  state.classes.forEach((c, idx) => { const opt=document.createElement('option'); opt.value=idx; opt.textContent=c.mainName; clsSel.appendChild(opt); });
+  clsSel.addEventListener('change', ()=> {
+    const idx = parseInt(clsSel.value,10);
+    const gSel = qs('notesGroupSelect'); gSel.innerHTML = '';
+    if(isNaN(idx)) return;
+    state.classes[idx].subgroups.forEach((g,gi) => { const o=document.createElement('option'); o.value=gi; o.textContent = `${g.name} (${g.members.length}/${state.classes[idx].maxMembers})`; gSel.appendChild(o); });
+  });
+}
+
+/* ========== Initial load & wiring ========== */
+qs('btnAbout').addEventListener('click', ()=> qs('aboutModal').style.display='flex');
+qs('closeAbout').addEventListener('click', ()=> qs('aboutModal').style.display='none');
+qs('aboutModal').addEventListener('click', (e)=> { if(e.target === qs('aboutModal')) qs('aboutModal').style.display='none'; });
+qs('notesModal').addEventListener('click', (e)=> { if(e.target === qs('notesModal')) qs('notesModal').style.display='none'; });
+qs('delegateModal').addEventListener('click', (e)=> { if(e.target === qs('delegateModal')) qs('delegateModal').style.display='none'; });
+
+(function init(){
+  loadState();
+  renderAll();
+})();
+</script>
+
+</body>
+</html>
